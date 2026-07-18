@@ -31,7 +31,7 @@ ENERGY_SOURCE_COLORS = {
     "Electricity": "#1F8A4C",
 }
 
-TEMP_COLORS = {
+TEMP_COLORS_SI = {
     "<20 °C": "#2A9D8F",
     "20-100 °C": "#7FBF7B",
     "100-200 °C": "#B9770E",
@@ -39,6 +39,42 @@ TEMP_COLORS = {
     "400-600 °C": "#8E5EA2",
     ">=600 °C": "#5B2C6F",
 }
+
+TEMP_COLORS_IMPERIAL = {
+    "<68 °F": "#2A9D8F",
+    "68-212 °F": "#7FBF7B",
+    "212-392 °F": "#B9770E",
+    "392-752 °F": "#C0392B",
+    "752-1112 °F": "#8E5EA2",
+    ">=1112 °F": "#5B2C6F",
+}
+
+TEMP_LABEL_MAP_SI_TO_IMPERIAL = {
+    "<20 °C": "<68 °F",
+    "20-100 °C": "68-212 °F",
+    "100-200 °C": "212-392 °F",
+    "200-400 °C": "392-752 °F",
+    "400-600 °C": "752-1112 °F",
+    ">=600 °C": ">=1112 °F",
+}
+
+TEMP_ORDER_SI = [
+    "<20 °C",
+    "20-100 °C",
+    "100-200 °C",
+    "200-400 °C",
+    "400-600 °C",
+    ">=600 °C",
+]
+
+TEMP_ORDER_IMPERIAL = [
+    "<68 °F",
+    "68-212 °F",
+    "212-392 °F",
+    "392-752 °F",
+    "752-1112 °F",
+    ">=1112 °F",
+]
 
 
 def norm(x):
@@ -56,19 +92,27 @@ def num(series):
     return pd.to_numeric(series, errors="coerce").fillna(0)
 
 
-def fmt_pj(x):
-    return f"{x:,.2f}"
+def pj_to_tbtu(x):
+    return x * 0.947817
+
+
+def c_to_f(x):
+    return x * 9 / 5 + 32
+
+
+def fmt_energy(x, unit_system):
+    return f"{x:,.2f} {'PJ' if unit_system == 'SI' else 'TBtu'}"
 
 
 def fmt_percent(x):
     return f"{x:.2%}" if x > 0 else "N/A"
 
 
-def style_donut(fig):
+def style_donut(fig, energy_unit):
     fig.update_traces(
         domain=dict(x=[0.00, 0.72]),
         textinfo="percent",
-        hovertemplate="%{label}<br>%{value:,.2f} PJ<br>%{percent}<extra></extra>",
+        hovertemplate=f"%{{label}}<br>%{{value:,.2f}} {energy_unit}<br>%{{percent}}<extra></extra>",
     )
     fig.update_layout(
         margin=dict(t=60, b=20, l=20, r=20),
@@ -97,9 +141,23 @@ def load_data():
     return df
 
 
+def convert_temp_labels(temp_grouped_df, unit_system):
+    temp_grouped_df = temp_grouped_df.copy()
+
+    if unit_system == "Imperial":
+        temp_grouped_df["Temperature Range"] = temp_grouped_df["Temperature Range"].astype(str).map(
+            lambda x: TEMP_LABEL_MAP_SI_TO_IMPERIAL.get(x, x)
+        )
+    else:
+        temp_grouped_df["Temperature Range"] = temp_grouped_df["Temperature Range"].astype(str)
+
+    return temp_grouped_df
+
+
 def render_overview(
     data_subset,
     subtitle,
+    unit_system,
     show_naics_chart=True,
     show_process_chart=True,
     show_energy_chart=True,
@@ -112,6 +170,14 @@ def render_overview(
     total_fuels = num(data_subset[fuels_col]).sum()
     total_steam = num(data_subset[steam_col]).sum()
 
+    if unit_system == "Imperial":
+        total_energy = pj_to_tbtu(total_energy)
+        total_electricity = pj_to_tbtu(total_electricity)
+        total_fuels = pj_to_tbtu(total_fuels)
+        total_steam = pj_to_tbtu(total_steam)
+
+    energy_unit = "PJ" if unit_system == "SI" else "TBtu"
+
     coverage_source_col = coverage_col if coverage_col is not None else percent_coverage_col
     coverage_value = num(data_subset[coverage_source_col]).sum()
     coverage_text = fmt_percent(coverage_value)
@@ -120,10 +186,10 @@ def render_overview(
 
     st.markdown(f"""
     <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1.5rem;">
-        <div style="padding:1rem; border:1px solid #ddd; border-radius:12px;">Total annual energy<br><b>{fmt_pj(total_energy)} PJ</b></div>
-        <div style="padding:1rem; border:1px solid #ddd; border-radius:12px;">Annual electricity<br><b>{fmt_pj(total_electricity)} PJ</b></div>
-        <div style="padding:1rem; border:1px solid #ddd; border-radius:12px;">Annual fuels<br><b>{fmt_pj(total_fuels)} PJ</b></div>
-        <div style="padding:1rem; border:1px solid #ddd; border-radius:12px;">Annual steam<br><b>{fmt_pj(total_steam)} PJ</b></div>
+        <div style="padding:1rem; border:1px solid #ddd; border-radius:12px;">Total annual energy<br><b>{fmt_energy(total_energy, unit_system)}</b></div>
+        <div style="padding:1rem; border:1px solid #ddd; border-radius:12px;">Annual electricity<br><b>{fmt_energy(total_electricity, unit_system)}</b></div>
+        <div style="padding:1rem; border:1px solid #ddd; border-radius:12px;">Annual fuels<br><b>{fmt_energy(total_fuels, unit_system)}</b></div>
+        <div style="padding:1rem; border:1px solid #ddd; border-radius:12px;">Annual steam<br><b>{fmt_energy(total_steam, unit_system)}</b></div>
         <div style="padding:1rem; border:1px solid #ddd; border-radius:12px;">{coverage_label}<br><b>{coverage_text}</b></div>
     </div>
     """, unsafe_allow_html=True)
@@ -165,26 +231,30 @@ def render_overview(
     temp_df = temp_df.dropna(subset=["Temperature"])
     temp_df = temp_df[temp_df["Annual Energy"] > 0].copy()
 
+    if unit_system == "Imperial":
+        temp_df["Annual Energy"] = temp_df["Annual Energy"].apply(pj_to_tbtu)
+
     temp_df["Temperature Range"] = pd.cut(
         temp_df["Temperature"],
         bins=[-float("inf"), 20, 100, 200, 400, 600, float("inf")],
-        labels=[
-            "<20 °C",
-            "20-100 °C",
-            "100-200 °C",
-            "200-400 °C",
-            "400-600 °C",
-            ">=600 °C",
-        ],
+        labels=TEMP_ORDER_SI,
         right=False,
     )
 
     temp_donut_df = (
         temp_df.dropna(subset=["Temperature Range"])
-        .groupby("Temperature Range", as_index=False)["Annual Energy"]
+        .groupby("Temperature Range", as_index=False, observed=False)["Annual Energy"]
         .sum()
     )
     temp_donut_df = temp_donut_df[temp_donut_df["Annual Energy"] > 0].copy()
+    temp_donut_df = convert_temp_labels(temp_donut_df, unit_system)
+
+    temp_color_map = TEMP_COLORS_SI if unit_system == "SI" else TEMP_COLORS_IMPERIAL
+    temp_order = TEMP_ORDER_SI if unit_system == "SI" else TEMP_ORDER_IMPERIAL
+
+    if unit_system == "Imperial":
+        naics_donut_df["Annual Energy"] = naics_donut_df["Annual Energy"].apply(pj_to_tbtu)
+        process_df["Annual Energy"] = process_df["Annual Energy"].apply(pj_to_tbtu)
 
     if show_naics_chart or show_process_chart:
         col1, col2 = st.columns(2)
@@ -200,7 +270,7 @@ def render_overview(
                     color_discrete_sequence=NAICS_COLORS,
                     title="NAICS Subsectors Within",
                 )
-                fig = style_donut(fig)
+                fig = style_donut(fig, energy_unit)
                 st.plotly_chart(fig, use_container_width=True)
 
             if show_process_chart and not process_df.empty:
@@ -213,7 +283,7 @@ def render_overview(
                     color_discrete_sequence=PROCESS_COLORS,
                     title="Industrial Processes Within",
                 )
-                fig = style_donut(fig)
+                fig = style_donut(fig, energy_unit)
                 st.plotly_chart(fig, use_container_width=True)
 
         with col2:
@@ -227,7 +297,7 @@ def render_overview(
                     color_discrete_map=ENERGY_SOURCE_COLORS,
                     title="Distribution by Energy Source",
                 )
-                fig = style_donut(fig)
+                fig = style_donut(fig, energy_unit)
                 st.plotly_chart(fig, use_container_width=True)
 
             if show_temp_chart and not temp_donut_df.empty:
@@ -237,20 +307,11 @@ def render_overview(
                     values="Annual Energy",
                     hole=0.62,
                     color="Temperature Range",
-                    color_discrete_map=TEMP_COLORS,
-                    category_orders={
-                        "Temperature Range": [
-                            "<20 °C",
-                            "20-100 °C",
-                            "100-200 °C",
-                            "200-400 °C",
-                            "400-600 °C",
-                            ">=600 °C",
-                        ]
-                    },
+                    color_discrete_map=temp_color_map,
+                    category_orders={"Temperature Range": temp_order},
                     title="Distribution by Process Temperature",
                 )
-                fig = style_donut(fig)
+                fig = style_donut(fig, energy_unit)
                 st.plotly_chart(fig, use_container_width=True)
 
     else:
@@ -267,7 +328,7 @@ def render_overview(
                     color_discrete_map=ENERGY_SOURCE_COLORS,
                     title="Distribution by Energy Source",
                 )
-                fig = style_donut(fig)
+                fig = style_donut(fig, energy_unit)
                 st.plotly_chart(fig, use_container_width=True)
 
         with col2:
@@ -278,20 +339,11 @@ def render_overview(
                     values="Annual Energy",
                     hole=0.62,
                     color="Temperature Range",
-                    color_discrete_map=TEMP_COLORS,
-                    category_orders={
-                        "Temperature Range": [
-                            "<20 °C",
-                            "20-100 °C",
-                            "100-200 °C",
-                            "200-400 °C",
-                            "400-600 °C",
-                            ">=600 °C",
-                        ]
-                    },
+                    color_discrete_map=temp_color_map,
+                    category_orders={"Temperature Range": temp_order},
                     title="Distribution by Process Temperature",
                 )
-                fig = style_donut(fig)
+                fig = style_donut(fig, energy_unit)
                 st.plotly_chart(fig, use_container_width=True)
 
 
@@ -330,6 +382,13 @@ if missing:
     st.write("Available columns:", list(df.columns))
     st.stop()
 
+unit_system = st.radio(
+    "Select unit system",
+    ["SI", "Imperial"],
+    horizontal=True,
+    key="unit_system"
+)
+
 naics_options = sorted(df[naics_l1_col].dropna().astype(str).drop_duplicates().tolist())
 
 if not naics_options:
@@ -350,6 +409,7 @@ with tab1:
     render_overview(
         df_filtered,
         f"Selected category: {selected_naics}",
+        unit_system=unit_system,
         show_naics_chart=True,
         show_process_chart=True,
         show_energy_chart=True,
@@ -362,6 +422,7 @@ with tab2:
     render_overview(
         df,
         "All NAICS Categories Combined",
+        unit_system=unit_system,
         show_naics_chart=False,
         show_process_chart=False,
         show_energy_chart=True,
