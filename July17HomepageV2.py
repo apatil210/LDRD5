@@ -505,21 +505,21 @@ cards = [
         "Industry data",
         "Process library",
         "Browse industrial process records and the supporting evidence base assembled for the project.",
-        "https://panel1v2py-c84ntaz8ryya3qefuxwux4.streamlit.app/",
+        "https://july17panel1v2py-haysvx6lcmmnlvgsqxdnps.streamlit.app/",
     ),
     (
         col2,
         "Unit operation data",
         "Operation insights",
         "Explore mapped unit operations, their functional role in processes, and their energy demand.",
-        "https://panel2v2py-f77d26ywjtutbsrsp6bihl.streamlit.app/",
+        "https://july17panel2v2py-dirahd9lxksy5xuwmwfk9a.streamlit.app/",
     ),
     (
         col3,
         "NAICS coverage",
         "Sector representation",
         "Review how the developed energy dataset maps across manufacturing sectors classified by NAICS codes.",
-        "https://panel3v2py-xe4lhzbjsfgekryipzv6wh.streamlit.app/",
+        "https://july17panel3v3py-dpozwxrcfkrvyqdmyn6qup.streamlit.app/",
     ),
 ]
 
