@@ -27,18 +27,46 @@ PLOT_BG = "rgba(0,0,0,0)"
 BAR_COLOR = "#0B6E74"
 
 ENERGY_COLOR_MAP = {
-    "Annual Electricity": "#54A24B",
-    "Annual Fuels": "#F58518",
-    "Annual Steam": "#4C78A8",
+    "Electricity": "#54A24B",
+    "Fuels": "#F58518",
+    "Steam": "#4C78A8",
 }
 
-TEMP_COLOR_MAP = {
+TEMP_COLOR_MAP_SI = {
     "<20 °C": "#72B7B2",
     "20-100 °C": "#54A24B",
     "100-200 °C": "#EACA3B",
     "200-400 °C": "#ECA82C",
     "400-600 °C": "#F58518",
     ">=600 °C": "#E45756",
+}
+
+TEMP_COLOR_MAP_IMPERIAL = {
+    "<68 °F": "#72B7B2",
+    "68-212 °F": "#54A24B",
+    "212-392 °F": "#EACA3B",
+    "392-752 °F": "#ECA82C",
+    "752-1112 °F": "#F58518",
+    ">=1112 °F": "#E45756",
+}
+
+UNIT_CONFIG = {
+    "SI": {
+        "annual_energy_unit": "PJ/yr",
+        "sec_unit": "GJ/t",
+        "temp_unit": "°C",
+        "pressure_unit": "bar",
+        "temp_ranges": ["<20 °C", "20-100 °C", "100-200 °C", "200-400 °C", "400-600 °C", ">=600 °C"],
+        "temp_color_map": TEMP_COLOR_MAP_SI,
+    },
+    "Imperial": {
+        "annual_energy_unit": "TBtu/yr",
+        "sec_unit": "MMBtu/short ton",
+        "temp_unit": "°F",
+        "pressure_unit": "psi",
+        "temp_ranges": ["<68 °F", "68-212 °F", "212-392 °F", "392-752 °F", "752-1112 °F", ">=1112 °F"],
+        "temp_color_map": TEMP_COLOR_MAP_IMPERIAL,
+    }
 }
 
 # ----------------------------
@@ -77,6 +105,24 @@ EXCEL_COL_AU = 47  # Annual energy
 EXCEL_COL_AW = 49  # Annual electricity
 EXCEL_COL_AX = 50  # Annual fuels
 EXCEL_COL_AY = 51  # Annual steam
+
+# ----------------------------
+# Unit conversions
+# ----------------------------
+def c_to_f(x):
+    return x * 9 / 5 + 32
+
+
+def bar_to_psi(x):
+    return x * 14.5038
+
+
+def pj_to_tbtu(x):
+    return x * 0.947817
+
+
+def gj_per_t_to_mmbtu_per_short_ton(x):
+    return x * 0.947817 / 1.10231
 
 # ----------------------------
 # Header utilities
@@ -185,7 +231,6 @@ def load_excel_data(url: str) -> pd.DataFrame:
         columns=[str(h) if h is not None else f"Unnamed_{i+1}" for i, h in enumerate(headers)]
     )
 
-    # Exact Excel-sourced columns
     df[COL_PROCESS_TEMP_WEB] = pd.Series([row[EXCEL_COL_K - 1] for row in rows])
     df["_Description_Excel_E"] = pd.Series([row[EXCEL_COL_E - 1] for row in rows])
     df["_Annual_Energy_AU"] = pd.Series([row[EXCEL_COL_AU - 1] for row in rows])
@@ -280,6 +325,12 @@ def build_fact_sheet(df: pd.DataFrame, selected_l2: str):
         sec_steam_col,
         process_temp_col,
         process_temp_web_col,
+        process_pressure_col,
+        inlet_pressure_col,
+        outlet_pressure_col,
+        inlet_temp_col,
+        outlet_temp_col,
+        residence_time_col,
     ]
 
     for col in numeric_cols:
@@ -312,15 +363,8 @@ def build_fact_sheet(df: pd.DataFrame, selected_l2: str):
         temp_energy_df["Temperature Level"] = pd.cut(
             temp_energy_df["Temperature Raw"],
             bins=[-float("inf"), 20, 100, 200, 400, 600, float("inf")],
-            labels=[
-                 "<20 °C",
-                 "20-100 °C",
-                 "100-200 °C",
-                 "200-400 °C",
-                 "400-600 °C",
-                 ">=600 °C"
-          ],
-          right=False
+            labels=["<20 °C", "20-100 °C", "100-200 °C", "200-400 °C", "400-600 °C", ">=600 °C"],
+            right=False
         )
 
         temp_breakdown_df = (
@@ -385,6 +429,80 @@ def build_fact_sheet(df: pd.DataFrame, selected_l2: str):
         "Annual Energy Source Column": "AU",
     }
 
+
+def convert_fact_sheet_units(fact_sheet: dict, unit_system: str) -> dict:
+    if unit_system == "SI":
+        return fact_sheet
+
+    converted = fact_sheet.copy()
+
+    converted["Annual Energy"] = pj_to_tbtu(converted["Annual Energy"])
+    converted["Annual Electricity"] = pj_to_tbtu(converted["Annual Electricity"])
+    converted["Annual Fuels"] = pj_to_tbtu(converted["Annual Fuels"])
+    converted["Annual Steam"] = pj_to_tbtu(converted["Annual Steam"])
+
+    temp_breakdown = converted["Temperature Breakdown"].copy()
+    if not temp_breakdown.empty:
+        temp_breakdown["Value"] = temp_breakdown["Value"].apply(
+            lambda x: pj_to_tbtu(x) if pd.notna(x) else x
+        )
+        temp_breakdown["Temperature Level"] = UNIT_CONFIG["Imperial"]["temp_ranges"]
+    converted["Temperature Breakdown"] = temp_breakdown
+
+    details = converted["Details"].copy()
+
+    sec_cols = [
+        "SEC Electricity (GJ/t)",
+        "SEC Fuels (GJ/t)",
+        "SEC Fuels or Electricity for Steam or Steam from CHP (GJ/t)"
+    ]
+    for col in sec_cols:
+        if col in details.columns:
+            details[col] = details[col].apply(
+                lambda x: gj_per_t_to_mmbtu_per_short_ton(x) if pd.notna(x) else x
+            )
+
+    temp_cols = [
+        "Process temperature123 (°C)",
+        "Process Temperature (°C) ",
+        "Inlet temperature (°C)",
+        "Outlet temperature (°C)"
+    ]
+    for col in temp_cols:
+        if col in details.columns:
+            details[col] = details[col].apply(
+                lambda x: c_to_f(x) if pd.notna(x) else x
+            )
+
+    pressure_cols = [
+        "Process pressure (bar)",
+        "Inlet pressure (bar)",
+        "Outlet pressure (bar)"
+    ]
+    for col in pressure_cols:
+        if col in details.columns:
+            details[col] = details[col].apply(
+                lambda x: bar_to_psi(x) if pd.notna(x) else x
+            )
+
+    rename_map = {
+        "SEC Electricity (GJ/t)": "SEC Electricity (MMBtu/short ton)",
+        "SEC Fuels (GJ/t)": "SEC Fuels (MMBtu/short ton)",
+        "SEC Fuels or Electricity for Steam or Steam from CHP (GJ/t)": "SEC Fuels or Electricity for Steam or Steam from CHP (MMBtu/short ton)",
+        "Process temperature123 (°C)": "Process temperature123 (°F)",
+        "Process Temperature (°C) ": "Process Temperature (°F)",
+        "Inlet temperature (°C)": "Inlet temperature (°F)",
+        "Outlet temperature (°C)": "Outlet temperature (°F)",
+        "Process pressure (bar)": "Process pressure (psi)",
+        "Inlet pressure (bar)": "Inlet pressure (psi)",
+        "Outlet pressure (bar)": "Outlet pressure (psi)",
+        "Annual Energy from AU": "Annual Energy from AU (TBtu/yr)"
+    }
+    details = details.rename(columns=rename_map)
+
+    converted["Details"] = details
+    return converted
+
 # ----------------------------
 # Chart builders
 # ----------------------------
@@ -415,7 +533,9 @@ def build_top10_treemap(df: pd.DataFrame, title_root: str):
     return fig
 
 
-def build_annual_energy_donut(fact_sheet: dict):
+def build_annual_energy_donut(fact_sheet: dict, unit_system: str):
+    annual_energy_unit = UNIT_CONFIG[unit_system]["annual_energy_unit"]
+
     donut_df = pd.DataFrame({
         "Energy Type": ["Electricity", "Fuels", "Steam"],
         "Value": [
@@ -443,7 +563,11 @@ def build_annual_energy_donut(fact_sheet: dict):
     fig.update_traces(
         textposition="outside",
         texttemplate="%{label}<br>%{percent}",
-        hovertemplate="<b>%{label}</b><br>Value: %{value:.3f} PJ/yr<br>Share: %{percent}<extra></extra>",
+        hovertemplate=(
+            "<b>%{label}</b><br>"
+            f"Value: %{{value:.3f}} {annual_energy_unit}<br>"
+            "Share: %{percent}<extra></extra>"
+        ),
         marker=dict(line=dict(color="#FFFFFF", width=2))
     )
 
@@ -456,7 +580,7 @@ def build_annual_energy_donut(fact_sheet: dict):
         font=dict(family="Arial, sans-serif", color=TEXT_COLOR, size=13),
         annotations=[
             dict(
-                text=f"<b>Total (PJ/yr)</b><br>{total_energy:.2f}",
+                text=f"<b>Total ({annual_energy_unit})</b><br>{total_energy:.2f}",
                 x=0.5, y=0.5, showarrow=False,
                 font=dict(size=16, color=TEXT_COLOR)
             )
@@ -466,7 +590,10 @@ def build_annual_energy_donut(fact_sheet: dict):
     return fig
 
 
-def build_temperature_donut(fact_sheet: dict):
+def build_temperature_donut(fact_sheet: dict, unit_system: str):
+    annual_energy_unit = UNIT_CONFIG[unit_system]["annual_energy_unit"]
+    temp_color_map = UNIT_CONFIG[unit_system]["temp_color_map"]
+
     donut_df = fact_sheet["Temperature Breakdown"].copy()
     if donut_df.empty:
         return None
@@ -477,7 +604,7 @@ def build_temperature_donut(fact_sheet: dict):
         values="Value",
         hole=0.62,
         color="Temperature Level",
-        color_discrete_map=TEMP_COLOR_MAP
+        color_discrete_map=temp_color_map
     )
 
     total_energy = donut_df["Value"].sum()
@@ -485,7 +612,11 @@ def build_temperature_donut(fact_sheet: dict):
     fig.update_traces(
         textposition="outside",
         texttemplate="%{label}<br>%{percent}",
-        hovertemplate="<b>%{label}</b><br>Energy magnitude: %{value:.3f}<br>Share: %{percent}<extra></extra>",
+        hovertemplate=(
+            "<b>%{label}</b><br>"
+            f"Energy magnitude: %{{value:.3f}} {annual_energy_unit}<br>"
+            "Share: %{percent}<extra></extra>"
+        ),
         marker=dict(line=dict(color="#FFFFFF", width=2))
     )
 
@@ -498,7 +629,7 @@ def build_temperature_donut(fact_sheet: dict):
         font=dict(family="Arial, sans-serif", color=TEXT_COLOR, size=13),
         annotations=[
             dict(
-                text=f"<b>Total (PJ/yr)</b><br>{total_energy:.2f}",
+                text=f"<b>Total ({annual_energy_unit})</b><br>{total_energy:.2f}",
                 x=0.5, y=0.5, showarrow=False,
                 font=dict(size=16, color=TEXT_COLOR)
             )
@@ -511,6 +642,13 @@ def build_temperature_donut(fact_sheet: dict):
 # App UI
 # ----------------------------
 st.title("2022 U.S. Manufacturing Energy Consumption by Unit Operation and Energy Source")
+
+unit_system = st.radio(
+    "Select unit system",
+    ["SI", "Imperial"],
+    horizontal=True,
+    key="unit_system"
+)
 
 try:
     df = load_excel_data(DATA_URL)
@@ -565,10 +703,12 @@ try:
         fact_sheet = build_fact_sheet(df, selected_l2)
 
         if fact_sheet is not None:
+            display_fact_sheet = convert_fact_sheet_units(fact_sheet, unit_system)
+
             st.subheader("Annual Energy Use Breakdown")
 
             st.caption("Categorization by Energy Source")
-            donut_fig = build_annual_energy_donut(fact_sheet)
+            donut_fig = build_annual_energy_donut(display_fact_sheet, unit_system)
             if donut_fig is not None:
                 st.plotly_chart(
                     donut_fig,
@@ -580,7 +720,7 @@ try:
                 st.info("No positive annual energy values available for the selected category.")
 
             st.caption("Categorization by Process Temperature")
-            temp_donut_fig = build_temperature_donut(fact_sheet)
+            temp_donut_fig = build_temperature_donut(display_fact_sheet, unit_system)
             if temp_donut_fig is not None:
                 st.plotly_chart(
                     temp_donut_fig,
@@ -595,16 +735,28 @@ try:
                     f"'{fact_sheet['Temperature Source Column']}' temperatures are available for the selected category."
                 )
 
-            st.dataframe(
-                fact_sheet["Details"].drop(columns=[
+            detail_df = display_fact_sheet["Details"].drop(
+                columns=[
                     "Process temperature123 (°C)",
+                    "Process temperature123 (°F)",
                     "Annual Energy from AU",
+                    "Annual Energy from AU (TBtu/yr)",
                     "Efficiency (%)",
                     "Inlet temperature (°C)",
+                    "Inlet temperature (°F)",
                     "Outlet temperature (°C)",
+                    "Outlet temperature (°F)",
                     "Inlet pressure (bar)",
+                    "Inlet pressure (psi)",
                     "Outlet pressure (bar)",
-                    "Residence time (sec)"], errors="ignore"),
+                    "Outlet pressure (psi)",
+                    "Residence time (sec)"
+                ],
+                errors="ignore"
+            )
+
+            st.dataframe(
+                detail_df,
                 use_container_width=True,
                 hide_index=True
             )
