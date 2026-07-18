@@ -21,9 +21,9 @@ PLOT_BG = "rgba(0,0,0,0)"
 BAR_COLOR = "#0B6E74"
 
 SEC_COLOR_MAP = {
-    "SEC Electricity": "#54A24B",
-    "SEC Fuels": "#F58518",
-    "SEC Steam": "#4C78A8",
+    "Electricity": "#54A24B",
+    "Fuels": "#F58518",
+    "Steam": "#4C78A8",
 }
 
 TEMP_COLOR_MAP = {
@@ -33,6 +33,25 @@ TEMP_COLOR_MAP = {
     "200-400 °C": "#F58518",
     "400-600 °C": "#E45756",
     ">=600 °C": "#B279A2",
+}
+
+UNIT_CONFIG = {
+    "SI": {
+        "production_label": "Annual Production (million-tonne/yr)",
+        "energy_label": "Annual Energy (PJ/yr)",
+        "sec_label": "GJ/t",
+        "temp_label": "°C",
+        "pressure_label": "bar",
+        "temp_ranges": ["<20 °C", "20-100 °C", "100-200 °C", "200-400 °C", "400-600 °C", ">=600 °C"],
+    },
+    "Imperial": {
+        "production_label": "Annual Production (million short tons/yr)",
+        "energy_label": "Annual Energy (TBtu/yr)",
+        "sec_label": "MMBtu/short ton",
+        "temp_label": "°F",
+        "pressure_label": "psi",
+        "temp_ranges": ["<68 °F", "68-212 °F", "212-392 °F", "392-752 °F", "752-1112 °F", ">=1112 °F"],
+    }
 }
 
 
@@ -66,6 +85,26 @@ def clean_category(series: pd.Series) -> pd.Series:
         .str.strip()
         .replace({"": "Unknown", "nan": "Unknown", "None": "Unknown"})
     )
+
+
+def c_to_f(x):
+    return x * 9 / 5 + 32
+
+
+def bar_to_psi(x):
+    return x * 14.5038
+
+
+def million_tonnes_to_million_short_tons(x):
+    return x * 1.10231
+
+
+def pj_to_tbtu(x):
+    return x * 0.947817
+
+
+def gj_per_t_to_mmbtu_per_short_ton(x):
+    return x * 0.947817 / 1.10231
 
 
 def prepare_bar_data(df: pd.DataFrame) -> pd.DataFrame:
@@ -180,7 +219,9 @@ def build_bar_chart(df: pd.DataFrame):
     return fig
 
 
-def build_sec_donut(fact_sheet: dict):
+def build_sec_donut(fact_sheet: dict, unit_system: str):
+    sec_unit = UNIT_CONFIG[unit_system]["sec_label"]
+
     donut_df = pd.DataFrame({
         "SEC Type": ["Electricity", "Fuels", "Steam"],
         "Value": [
@@ -208,7 +249,7 @@ def build_sec_donut(fact_sheet: dict):
         texttemplate="%{label}<br>%{percent}",
         hovertemplate=(
             "<b>%{label}</b><br>"
-            "Value: %{value:.3f}<br>"
+            f"Value: %{{value:.3f}} {sec_unit}<br>"
             "Share: %{percent}<extra></extra>"
         ),
         marker=dict(line=dict(color="#FFFFFF", width=2))
@@ -227,7 +268,7 @@ def build_sec_donut(fact_sheet: dict):
         ),
         annotations=[
             dict(
-                text=f"<b>Total SEC (GJ/t)</b><br>{total_sec:.2f}",
+                text=f"<b>Total SEC</b><br>{total_sec:.2f} {sec_unit}",
                 x=0.5,
                 y=0.5,
                 showarrow=False,
@@ -239,7 +280,9 @@ def build_sec_donut(fact_sheet: dict):
     return fig
 
 
-def build_temp_sec_donut(fact_sheet: dict):
+def build_temp_sec_donut(fact_sheet: dict, unit_system: str):
+    sec_unit = UNIT_CONFIG[unit_system]["sec_label"]
+
     donut_df = fact_sheet["Temperature SEC Breakdown"].copy()
     donut_df = donut_df[donut_df["Value"] > 0].copy()
 
@@ -259,7 +302,7 @@ def build_temp_sec_donut(fact_sheet: dict):
         texttemplate="%{label}<br>%{percent}",
         hovertemplate=(
             "<b>%{label}</b><br>"
-            "Value: %{value:.3f} GJ/t<br>"
+            f"Value: %{{value:.3f}} {sec_unit}<br>"
             "Share: %{percent}<extra></extra>"
         ),
         marker=dict(line=dict(color="#FFFFFF", width=2))
@@ -278,7 +321,7 @@ def build_temp_sec_donut(fact_sheet: dict):
         ),
         annotations=[
             dict(
-                text=f"<b>Total SEC (GJ/t)</b><br>{total_sec:.2f}",
+                text=f"<b>Total SEC</b><br>{total_sec:.2f} {sec_unit}",
                 x=0.5,
                 y=0.5,
                 showarrow=False,
@@ -298,7 +341,6 @@ def build_fact_sheet(df: pd.DataFrame, selected_process: str):
 
     sec_total_col = "SEC"
 
-    # Excel columns U, W, X, Y -> zero-based positions 20, 22, 23, 24
     temp_sec_idx = 20
     elec_idx = 22
     fuel_idx = 23
@@ -306,13 +348,7 @@ def build_fact_sheet(df: pd.DataFrame, selected_process: str):
 
     temp_web_col = "Process Temperature for Webpage"
     process_temp_col = "Process temperature"
-    inlet_temp_col = "Inlet temperature"
-    outlet_temp_col = "Outlet temperature"
     process_pressure_col = "Process pressure"
-    inlet_pressure_col = "Inlet pressure"
-    outlet_pressure_col = "Outlet pressure"
-    residence_time_col = "Residence time"
-    efficiency_col = "Efficiency"
 
     naics_idx = 45
 
@@ -330,7 +366,8 @@ def build_fact_sheet(df: pd.DataFrame, selected_process: str):
         annual_energy_col,
         sec_total_col,
         temp_web_col,
-        process_temp_col
+        process_temp_col,
+        process_pressure_col
     ]
 
     for col in numeric_cols:
@@ -346,7 +383,6 @@ def build_fact_sheet(df: pd.DataFrame, selected_process: str):
     if process_temp_col in selected_df.columns:
         selected_df["Temp for Donut"] = selected_df["Temp for Donut"].fillna(selected_df[process_temp_col])
 
-    # Use Column U directly for temperature donut SEC values
     selected_df["Temp SEC Value"] = selected_df.iloc[:, temp_sec_idx]
 
     naics_series = (
@@ -379,15 +415,8 @@ def build_fact_sheet(df: pd.DataFrame, selected_process: str):
     temp_sec_df["Temperature Range"] = pd.cut(
         temp_sec_df["Temp for Donut"],
         bins=[float("-inf"), 20, 100, 200, 400, 600, float("inf")],
-        labels=[
-        "<20 °C",
-        "20-100 °C",
-        "100-200 °C",
-        "200-400 °C",
-        "400-600 °C",
-        ">=600 °C"
-    ],
-    right=False
+        labels=["<20 °C", "20-100 °C", "100-200 °C", "200-400 °C", "400-600 °C", ">=600 °C"],
+        right=False
     )
 
     temp_breakdown = (
@@ -397,14 +426,7 @@ def build_fact_sheet(df: pd.DataFrame, selected_process: str):
     )
 
     all_ranges = pd.DataFrame({
-       "Temperature Range": [
-        "<20 °C",
-        "20-100 °C",
-        "100-200 °C",
-        "200-400 °C",
-        "400-600 °C",
-        ">=600 °C"
-    ]
+        "Temperature Range": ["<20 °C", "20-100 °C", "100-200 °C", "200-400 °C", "400-600 °C", ">=600 °C"]
     })
 
     temp_breakdown = all_ranges.merge(
@@ -416,20 +438,12 @@ def build_fact_sheet(df: pd.DataFrame, selected_process: str):
 
     detail_df = pd.DataFrame({
         "Unit Operations": selected_df[unit_ops_col],
-        # "SEC Total (GJ/t)": selected_df[sec_total_col],
         "SEC Total (GJ/t)": selected_df.iloc[:, temp_sec_idx],
         "SEC Electricity (GJ/t)": selected_df.iloc[:, elec_idx],
         "SEC Fuels (GJ/t)": selected_df.iloc[:, fuel_idx],
-        "SEC Fuels or Electricity for Steam or Steam from CHP (GJ/t)": selected_df.iloc[:, steam_idx],
-        # "Process Temp for Webpage (°C)": selected_df[temp_web_col],
+        "SEC Steam (GJ/t)": selected_df.iloc[:, steam_idx],
         "Process temperature (°C)": selected_df[temp_web_col],
-        # "Inlet temperature (°C)": selected_df[inlet_temp_col],
-        # "Outlet temperature (°C)": selected_df[outlet_temp_col],
-        # "Efficiency (%)": selected_df[efficiency_col],
-        "Process pressure (bar)": selected_df[process_pressure_col],
-        # "Inlet pressure (bar)": selected_df[inlet_pressure_col],
-        # "Outlet pressure (bar)": selected_df[outlet_pressure_col],
-        # "Residence time (sec)": selected_df[residence_time_col]
+        "Process pressure (bar)": selected_df[process_pressure_col]
     })
 
     return {
@@ -445,7 +459,75 @@ def build_fact_sheet(df: pd.DataFrame, selected_process: str):
     }
 
 
+def convert_fact_sheet_for_units(fact_sheet: dict, unit_system: str) -> dict:
+    if unit_system == "SI":
+        return fact_sheet
+
+    converted = fact_sheet.copy()
+    converted["Annual Production"] = million_tonnes_to_million_short_tons(converted["Annual Production"])
+    converted["Annual Energy"] = pj_to_tbtu(converted["Annual Energy"])
+    converted["SEC Electricity"] = gj_per_t_to_mmbtu_per_short_ton(converted["SEC Electricity"])
+    converted["SEC Fuels"] = gj_per_t_to_mmbtu_per_short_ton(converted["SEC Fuels"])
+    converted["SEC Steam"] = gj_per_t_to_mmbtu_per_short_ton(converted["SEC Steam"])
+
+    details = converted["Details"].copy()
+
+    rename_map = {
+        "SEC Total (GJ/t)": "SEC Total (MMBtu/short ton)",
+        "SEC Electricity (GJ/t)": "SEC Electricity (MMBtu/short ton)",
+        "SEC Fuels (GJ/t)": "SEC Fuels (MMBtu/short ton)",
+        "SEC Steam (GJ/t)": "SEC Steam (MMBtu/short ton)",
+        "Process temperature (°C)": "Process temperature (°F)",
+        "Process pressure (bar)": "Process pressure (psi)"
+    }
+
+    if "SEC Total (GJ/t)" in details.columns:
+        details["SEC Total (GJ/t)"] = details["SEC Total (GJ/t)"].apply(
+            lambda x: gj_per_t_to_mmbtu_per_short_ton(x) if pd.notna(x) else x
+        )
+    if "SEC Electricity (GJ/t)" in details.columns:
+        details["SEC Electricity (GJ/t)"] = details["SEC Electricity (GJ/t)"].apply(
+            lambda x: gj_per_t_to_mmbtu_per_short_ton(x) if pd.notna(x) else x
+        )
+    if "SEC Fuels (GJ/t)" in details.columns:
+        details["SEC Fuels (GJ/t)"] = details["SEC Fuels (GJ/t)"].apply(
+            lambda x: gj_per_t_to_mmbtu_per_short_ton(x) if pd.notna(x) else x
+        )
+    if "SEC Steam (GJ/t)" in details.columns:
+        details["SEC Steam (GJ/t)"] = details["SEC Steam (GJ/t)"].apply(
+            lambda x: gj_per_t_to_mmbtu_per_short_ton(x) if pd.notna(x) else x
+        )
+    if "Process temperature (°C)" in details.columns:
+        details["Process temperature (°C)"] = details["Process temperature (°C)"].apply(
+            lambda x: c_to_f(x) if pd.notna(x) else x
+        )
+    if "Process pressure (bar)" in details.columns:
+        details["Process pressure (bar)"] = details["Process pressure (bar)"].apply(
+            lambda x: bar_to_psi(x) if pd.notna(x) else x
+        )
+
+    details = details.rename(columns=rename_map)
+
+    temp_breakdown = converted["Temperature SEC Breakdown"].copy()
+    temp_breakdown["Value"] = temp_breakdown["Value"].apply(
+        lambda x: gj_per_t_to_mmbtu_per_short_ton(x) if pd.notna(x) else x
+    )
+    temp_breakdown["Temperature Range"] = UNIT_CONFIG["Imperial"]["temp_ranges"]
+
+    converted["Details"] = details
+    converted["Temperature SEC Breakdown"] = temp_breakdown
+
+    return converted
+
+
 st.title("2022 U.S. Manufacturing Energy Consumption by Industrial Process")
+
+unit_system = st.radio(
+    "Select unit system",
+    ["SI", "Imperial"],
+    horizontal=True,
+    key="unit_system"
+)
 
 try:
     df = load_excel(DATA_URL)
@@ -457,39 +539,42 @@ try:
         st.subheader("Annual Energy Consumption by Industrial Process (%)")
 
         st.plotly_chart(
-                build_bar_chart(bar_df),
-                use_container_width=False,
-                theme=None,
-                config={
-                    "displayModeBar": False,
-                    "scrollZoom": False
-                }
-            )
+            build_bar_chart(bar_df),
+            use_container_width=False,
+            theme=None,
+            config={
+                "displayModeBar": False,
+                "scrollZoom": False
+            }
+        )
 
     with right_col:
         selected_process = st.selectbox(
-    "Select an industrial process to view its energy demand breakdown. "
-    "Note that the production units for some processes differ from million tonnes of product and are defined as follows: "
-    "barrels of crude for Petroleum Refining (324110), bushels of corn for Wet Corn Milling (311221), "
-    "million tonnes of raw milk input for Fluid Milk Manufacturing (3115), million tonnes of soybeans input for Soybean Processing (311224), "
-    "barrels of beer for Beer Processing (312120), million tonnes of scrap input for Secondary Aluminum (331313), "
-    "cubic meters of spirits for Distillery (312140) and vehicle units for Automotive Assembly (336110)",
-    bar_df["Industrial process"].tolist()
-)
+            "Select an industrial process to view its energy demand breakdown. "
+            "Note that the production units for some processes differ from million tonnes of product and are defined as follows: "
+            "barrels of crude for Petroleum Refining (324110), bushels of corn for Wet Corn Milling (311221), "
+            "million tonnes of raw milk input for Fluid Milk Manufacturing (3115), million tonnes of soybeans input for Soybean Processing (311224), "
+            "barrels of beer for Beer Processing (312120), million tonnes of scrap input for Secondary Aluminum (331313), "
+            "cubic meters of spirits for Distillery (312140) and vehicle units for Automotive Assembly (336110)",
+            bar_df["Industrial process"].tolist()
+        )
 
         fact_sheet = build_fact_sheet(df, selected_process)
 
         if fact_sheet:
+            display_fact_sheet = convert_fact_sheet_for_units(fact_sheet, unit_system)
+            unit_cfg = UNIT_CONFIG[unit_system]
+
             c1, c2, c3 = st.columns(3)
-            c1.metric("Annual Production (million-tonne/yr)", f"{fact_sheet['Annual Production']:.2f}")
-            c2.metric("Annual Energy (PJ/yr)", f"{fact_sheet['Annual Energy']:.2f}")
-            c3.metric("NAICS Code", f"{fact_sheet['NAICS Code']}")
+            c1.metric(unit_cfg["production_label"], f"{display_fact_sheet['Annual Production']:.2f}")
+            c2.metric(unit_cfg["energy_label"], f"{display_fact_sheet['Annual Energy']:.2f}")
+            c3.metric("NAICS Code", f"{display_fact_sheet['NAICS Code']}")
 
             st.subheader("Specific Energy Consumption (SEC)")
 
             st.caption("Categorization by Energy Source")
             st.plotly_chart(
-                build_sec_donut(fact_sheet),
+                build_sec_donut(display_fact_sheet, unit_system),
                 use_container_width=True,
                 theme=None,
                 config={"displayModeBar": False}
@@ -497,14 +582,14 @@ try:
 
             st.caption("Categorization by Process Temperature")
             st.plotly_chart(
-                build_temp_sec_donut(fact_sheet),
+                build_temp_sec_donut(display_fact_sheet, unit_system),
                 use_container_width=True,
                 theme=None,
                 config={"displayModeBar": False}
             )
 
             st.dataframe(
-                fact_sheet["Details"],
+                display_fact_sheet["Details"],
                 use_container_width=True,
                 hide_index=True
             )
