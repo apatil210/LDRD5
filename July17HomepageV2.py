@@ -12,28 +12,28 @@ contributors = [
         "profile": "https://energyanalysis.lbl.gov/people/akash-kailas-patil",
         "title": "Postdoctoral Researcher, Energy Analysis Division",
         "email": "apatil2@lbl.gov",
-        "photo": "https://raw.githubusercontent.com/apatil210/LDRD4/main/Akashpic2.jpg",
+        "photo": "https://raw.githubusercontent.com/apatil210/LDRD5/main/Akashpic2.jpg",
     },
     {
         "name": "Jibran Zuberi",
         "profile": "https://eta.lbl.gov/people/jibran-zuberi",
         "title": "Energy/Environmental Policy Research Scientist/Engineer, Energy Analysis Division",
         "email": "mjszuberi@lbl.gov",
-        "photo": "https://raw.githubusercontent.com/apatil210/LDRD4/main/Jibran.jpg",
+        "photo": "https://raw.githubusercontent.com/apatil210/LDRD5/main/Jibran.jpg",
     },
     {
         "name": "Prakash Rao",
         "profile": "https://eta.lbl.gov/people/prakash-rao",
         "title": "Head · Building & Industrial Applications Department",
         "email": "prao@lbl.gov",
-        "photo": "https://raw.githubusercontent.com/apatil210/LDRD4/main/Prakash.jpg",
+        "photo": "https://raw.githubusercontent.com/apatil210/LDRD5/main/Prakash.jpg",
     },
     {
         "name": "Unique Karki",
         "profile": "https://eta.lbl.gov/people/unique-karki",
         "title": "Technology Researcher II · Building & Industrial Energy Systems Division",
         "email": "ukarki@lbl.gov",
-        "photo": "https://raw.githubusercontent.com/apatil210/LDRD4/main/Unique.jpg",
+        "photo": "https://raw.githubusercontent.com/apatil210/LDRD5/main/Unique.jpg",
     },
 ]
 
@@ -488,7 +488,7 @@ st.markdown(
         <h2 class="section-title">Data Resources</h2>
         <p class="resource-intro">Access the core datasets and coverage views that support the analytical framework.</p>
         <p class="resource-intro">
-            <a href="https://github.com/apatil210/LDRD4/raw/refs/heads/main/2022-Energy-Demand-in-US-Industry.xlsx" target="_blank" rel="noopener noreferrer">
+            <a href="https://github.com/apatil210/LDRD5/raw/refs/heads/main/2022-Energy-Demand-in-US-Industry.xlsx" target="_blank" rel="noopener noreferrer">
                 Click here to download the spreadsheet for the 2022 manufacturing energy data
             </a>
         </p>
