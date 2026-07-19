@@ -499,7 +499,7 @@ cards = [
         col1,
         "Industry data",
         "Process Library",
-        "Browse industrial process records and the supporting evidence base assembled for the project.",
+        "Browse breakouts of US energy demand for several industrial processes.",
         "https://july17panel1v2py-haysvx6lcmmnlvgsqxdnps.streamlit.app/",
     ),
     (
