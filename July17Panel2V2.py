@@ -692,7 +692,7 @@ try:
             theme=None,
             config={"displayModeBar": False, "scrollZoom": False}
         )
-       st.caption("*Represented 2/3 of U.S. manufacturing sector in 2022.") 
+       st.caption("*Represented 2/3 of U.S. manufacturing sector in 2022.")
         st.subheader("2022 Electricity Use Breakdown Representing Two Thirds of the Manufacturing Sector, by Unit Operation (%)")
         st.plotly_chart(
             build_top10_treemap(electricity_df, "Top 10 Categories by Electricity Use"),
@@ -700,7 +700,7 @@ try:
             theme=None,
             config={"displayModeBar": False, "scrollZoom": False}
         )
-       st.caption("*Represented 2/3 of U.S. manufacturing sector in 2022.")  
+       st.caption("*Represented 2/3 of U.S. manufacturing sector in 2022.")
         st.subheader("2022 Fuel Energy Use (excluding Steam) Breakdown Representing Two Thirds of the Manufacturing Sector, by Unit Operation (%)")
         st.plotly_chart(
             build_top10_treemap(fuels_df, "Top 10 Categories by Fuels (Excluding Steam) Use"),
@@ -716,7 +716,7 @@ try:
             theme=None,
             config={"displayModeBar": False, "scrollZoom": False}
         )
-       st.caption("*Represented 2/3 of U.S. manufacturing sector in 2022.")  
+       st.caption("*Represented 2/3 of U.S. manufacturing sector in 2022.")
     with right_col:
         selected_l2 = st.selectbox(
             "Select a unit operation to view its energy use breakdown",
