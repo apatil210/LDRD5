@@ -262,17 +262,16 @@ st.markdown(
         text-decoration: underline;
     }
 
-    .nav-link {
+    .nav-link,
+    .nav-link:link,
+    .nav-link:visited,
+    .nav-link:hover,
+    .nav-link:active,
+    .nav-link:focus {
         text-decoration: none;
+        color: inherit;
         display: block;
         width: 100%;
-        color: inherit;
-    }
-
-    .nav-link:hover,
-    .nav-link:focus,
-    .nav-link:visited {
-        text-decoration: none;
     }
 
     .nav-card {
@@ -303,6 +302,7 @@ st.markdown(
         letter-spacing: 0.08em;
         color: var(--lbl-teal);
         margin-bottom: 0.95rem;
+        text-decoration: none;
     }
 
     .nav-title {
@@ -313,19 +313,17 @@ st.markdown(
         text-decoration: none;
     }
 
-    .nav-title a {
-        text-decoration: none;
-    }
-
     .nav-copy {
         font: 400 1rem/1.7 'Source Serif 4', serif;
         color: #35505a;
         margin: 0 0 1.1rem 0;
+        text-decoration: none;
     }
 
     .nav-footer {
         font: 700 0.92rem/1 'Libre Franklin', sans-serif;
         color: var(--lbl-blue);
+        text-decoration: none;
     }
 
     .team-grid {
