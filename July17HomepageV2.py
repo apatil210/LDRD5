@@ -24,7 +24,7 @@ contributors = [
     {
         "name": "Prakash Rao",
         "profile": "https://eta.lbl.gov/people/prakash-rao",
-        "title": "Head · Building & Industrial Applications Department",
+        "title": "Head, Building & Industrial Applications Department, Building & Industrial Energy Systems Division",
         "email": "prao@lbl.gov",
         "photo": "https://raw.githubusercontent.com/apatil210/LDRD5/main/Prakash.jpg",
     },
