@@ -685,7 +685,7 @@ try:
     left_col, right_col = st.columns([1.6, 1.1], gap="large")
 
     with left_col:
-        st.subheader("2022 Energy Use Breakdown Representing Two Thirds of the Manufacturing Sector, by Unit Operation (%)")
+        st.subheader("Total Energy Use Breakdown by Unit Operation (%)")
         st.plotly_chart(
             build_top10_treemap(overall_df, "Top 10 Categories by Total Energy Use"),
             use_container_width=True,
@@ -694,7 +694,7 @@ try:
         )
         st.caption("*Represented 2/3 of U.S. manufacturing sector in 2022.")
 
-        st.subheader("2022 Electricity Use Breakdown Representing Two Thirds of the Manufacturing Sector, by Unit Operation (%)")
+        st.subheader("Electricity Use Breakdown by Unit Operation (%)")
         st.plotly_chart(
             build_top10_treemap(electricity_df, "Top 10 Categories by Electricity Use"),
             use_container_width=True,
@@ -702,7 +702,7 @@ try:
             config={"displayModeBar": False, "scrollZoom": False}
         )
         st.caption("*Represented 2/3 of U.S. manufacturing sector in 2022.")
-        st.subheader("2022 Fuel Energy Use (excluding Steam) Breakdown Representing Two Thirds of the Manufacturing Sector, by Unit Operation (%)")
+        st.subheader("Fuel Energy (Excluding Steam) Breakdown by Unit Operation (%)")
         st.plotly_chart(
             build_top10_treemap(fuels_df, "Top 10 Categories by Fuels (Excluding Steam) Use"),
             use_container_width=True,
@@ -710,7 +710,7 @@ try:
             config={"displayModeBar": False, "scrollZoom": False}
         )
         st.caption("*Represented 2/3 of U.S. manufacturing sector in 2022.")
-        st.subheader("2022 Steam Use Breakdown Representing Two Thirds of the Manufacturing Sector, by Unit Operation (%)")
+        st.subheader("Steam Use Breakdown by Unit Operation (%)")
         st.plotly_chart(
             build_top10_treemap(steam_df, "Top 10 by Steam Use"),
             use_container_width=True,
